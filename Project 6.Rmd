@@ -1,0 +1,542 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+
+STAT 4360 Mini Project 6
+
+Name: Jaemin Lee
+
+Section 1: Answers to the specific question asked
+
+Question 1
+
+(a)
+```{r include=FALSE}
+######### 1 a) 
+# exploratory analysis
+Cereal = read.csv("C:/Users/jaemi/Desktop/STAT 4360 (Stat Learning)/Projects/Project 6/Cereal.csv", header = T)
+str(Cereal) # look at the structure of the data
+head(Cereal)
+```
+
+```{r echo=FALSE}
+library(PerformanceAnalytics)
+chart.Correlation(Cereal[,-(1:3)])
+```
+From the pairwise scatter plots above, we see that Fiber and Patassium, Sodium and Carbohydrates, Protein and Patassium, and Calories and Sugar are stongly correlated. 
+
+(b) Standatdizing the variables before clustering would be a good idea as the predictors are measured on different scales.
+```{r include=FALSE}
+########## 1 b)
+# standardizing data
+std.cereal = scale(Cereal[,-(1:3)])
+str(std.cereal)
+head(std.cereal)
+var(Cereal[,-(1:3)][,1]) # check the variance of the 1st variable before it's standardized -> 359
+var(std.cereal[,1]) # notice it's standardized to 1
+var(std.cereal[,2]) # standardized to 1
+```
+(c) Metric-based distance would be a good choice as metric-based distance such as euclidean distance gives you how similar or dissimilar clusters are based on all the variables. However, correlation-based distance doesn't necessarily use all the variables when clustering. For our cereal data set, we want to use all the predictors to cluster cereals.
+
+(d) 
+```{r echo=FALSE}
+######### 1 d)
+# apply hierarchical clustering using complete linkage and Euclidean distance
+dist = dist(std.cereal, method = "euclidean")
+hc.complete = hclust(dist, method = "complete")
+plot(hc.complete)
+```
+One can either choose 3 or 5 clusters based on the dendrogram above. One can cut the dendogram slightly above height 6 which results in 3 clusters. One can also cut the dendogram slightly above 4 which results in 5 clusters. If you choose 3 clusters, 18 is in its own cluster. This tells us that cereal 18 is an outlier. If you choose 5 clusters, both 18 and 43 are in its own cluster. In my opinion, I would choose 3 clusters as we don't want to have too many clusters with only one item.
+
+(e)
+```{r echo=FALSE}
+########### 1 e)
+# Use clusplot function to plot cluster when K = 2
+library(factoextra)
+km.cluster2.plot = eclust(x = std.cereal, FUNcluster = "kmeans", k = 2, graph = TRUE)
+```
+
+```{r echo=FALSE}
+# Use clusplot function to plot cluster when K = 3
+library(factoextra)
+km.cluster2.plot = eclust(x = std.cereal, FUNcluster = "kmeans", k = 3, graph = TRUE)
+```
+
+```{r echo=FALSE}
+# Use clusplot function to plot cluster when K = 4
+library(factoextra)
+km.cluster2.plot = eclust(x = std.cereal, FUNcluster = "kmeans", k = 4, graph = TRUE)
+```
+Based on the three plots above, I would recommend choosing K = 3 for clusters. If you look at the plot for K = 4, the traingle cluster (on the bottom right) only has 4 points. The number of data in the triangle cluster is quite small. This is happening as it's trying to catch the outlier and we do not want to focus too much on capturing outliers. The plot for K = 2 seems better than K = 4, but it seems like the more clusters can be formed from the triangle cluster. Therefore, K = 3 would be the most reasonable choice as three clusters are formed reasonably. 
+
+(f) One can choose K-Means clustering over hierarchical clustering for this particular data set. For hierarchical clustering, if you choose 3 clusters, one of the clusters contains majority of the data whereas one of the other two only contains one data (cereal number 18). Having only one point in a cluster means that the point is an outlier and hierarchical clustering doesn't catch that outlier till the very end. However, if you choose K-Means clustering with K = 3, all three clusters are fully formed (as no cluster has only one point). 
+
+Question 2
+
+(a)
+```{r include=FALSE}
+############## 2 (a)
+library(ISLR)
+dim(Caravan) # 5822 observations with 86 variables (one of them being response)
+str(Caravan)
+head(Caravan$Purchase)
+
+# standardize the data
+standardized.X = scale(Caravan[,-86])
+str(standardized.X)
+
+# add back the response (Purchase) to the standardized data
+std.data = cbind(standardized.X, Caravan$Purchase)
+std.data = data.frame(std.data)
+colnames(std.data)[which(names(std.data) == "V86")] <- "Purchase"
+str(std.data$Purchase)
+
+# switch the purchase back to factor (Yes and no)
+old.purchase = c('1','2')
+new.purchase = factor(c('No', 'Yes'))
+std.data$Purchase = new.purchase[match(std.data$Purchase, old.purchase)]
+std.data$Purchase
+```
+
+```{r include=FALSE}
+# split into test and training data
+test = 1:1000 # test ID
+train.X = standardized.X[-test ,] # train X
+str(train.X)
+test.X  = standardized.X[test ,] # test x
+str(test.X)
+train.Y = Caravan$Purchase[-test] # train y
+test.Y = Caravan$Purchase[test] # test y
+```
+
+```{r include=FALSE}
+############ 2 a)
+# decision tree
+library(tree)
+
+# grow a tree using training data 
+tree.caravan = tree(Purchase ~., std.data, subset = -test)
+
+# see the default output
+tree.caravan
+```
+
+```{r echo=FALSE}
+# see the summary of the output
+summary(tree.caravan)
+```
+
+```{r echo=FALSE}
+# plot the tree
+plot(tree.caravan)
+text(tree.caravan, pretty = 0 , cex = 0.7)
+```
+
+```{r include=FALSE}
+# get predictions on the test set
+tree.pred = predict(tree.caravan, data.frame(test.X), type = "class")
+```
+
+
+```{r echo=FALSE}
+# compute the confusion matrix
+tree.conf.mat = table(tree.pred, test.Y);tree.conf.mat
+```
+
+```{r include=FALSE}
+# misclassificaion rate
+misclass.tree.unpruned = (59/1000) * 100
+```
+There are 4 regions total. R1: PPERSAUT < 0.866083, R2: PPERSAUT > 0.866083 and PBRAND < 0.3577, R3: PPERSAUT > 0.866083 and PBRAND > 0.3577 and MOPLLAAG < -0.0315404, R4: PPERSAUT > 0.866083 and PBRAND > 0.3577 and MOPLLAAG > -0.0315404.
+
+(b)
+```{r include=FALSE}
+####### 2 (b)
+# prune the tree using CV
+set.seed(1)
+cv.caravan = cv.tree(tree.caravan, FUN = prune.misclass)
+cv.caravan
+names(cv.caravan)
+```
+```{r include=FALSE}
+# plot the estimated error rate
+par(mfrow = c(1, 2))
+plot(cv.caravan$size, cv.caravan$dev, type = "b")
+plot(cv.caravan$k, cv.caravan$dev, type = "b")
+
+# get the best size
+cv.caravan$size[which.min(cv.caravan$dev)]
+
+# get the pruned tree of the best size
+prune.caravan = prune.misclass(tree.caravan, best = 4)
+```
+Pruning is not helpful as the pruned tree looks exactly the same as the unpruned tree. The optimal size for the pruned tree is 4. Based on the plot above, the error rate stays the same from size 1 through 4. It's better to choose size of 4 as we want some kind of splits in the decision tree. Important predictors are PPERSAUT, PBRAND, MOPLLAAG.
+```{r include=FALSE}
+# plot the pruned tree
+plot(prune.caravan)
+text(prune.caravan, pretty = 0 , cex = 0.7)
+```
+```{r include=FALSE}
+library(tree)
+# get predictions on the test set
+prune.pred = predict(prune.caravan, data.frame(test.X), type = "class")
+```
+
+```{r echo=FALSE}
+# compute the confusion matrix
+conf.mat.pruned = table(prune.pred, test.Y);conf.mat.pruned
+```
+
+```{r include=FALSE}
+# misclassificaion rate
+misclass.tree.pruned = (59/1000) * 100 # 5.9%
+```
+ 
+(c) 
+```{r include=FALSE}
+######## 2 c)
+# perform bagging using training data
+library(randomForest)
+set.seed(1)
+bag.caravan <- randomForest(Purchase ~., data = std.data, subset = -test, mtry = 85, ntree = 1000, importance = TRUE)
+bag.caravan
+```
+
+```{r include=FALSE}
+# estimate test error rate
+yhat.bag = predict(bag.caravan, newdata = std.data[test, ])
+```
+
+```{r echo=FALSE}
+# confusion matrix for bagging
+table(yhat.bag, test.Y)
+```
+
+```{r include=FALSE}
+# error rate for bagging
+err.bag = ((51+29)/1000)*100 # 8 %
+```
+
+```{r include=FALSE}
+# look for the important variables for bagging
+varImpPlot(bag.caravan)
+```
+Important variables are MOSTYPE, MOPLLAAG as they appear on the top on both MeanDecreaseAccuracy and MeanDecreaseGini plots. PBRAND might be an important variable as it appears to be the most important variable on the Gini plot, but it doesn't appear on the MeanDecreaseAccuracy plot. 
+
+(d)
+```{r include=FALSE}
+####### 2 (d)
+# perform randomForest using training data
+set.seed(1)
+rf.caravan <- randomForest(Purchase ~., data = std.data, subset = -test, mtry = sqrt(85), ntree = 1000, importance = TRUE)
+rf.caravan
+```
+```{r include=FALSE}
+# estimate test error rate for random forest
+yhat.rf = predict(rf.caravan, newdata = std.data[test, ])
+```
+
+```{r echo=FALSE}
+# confusion matrix for random forest
+table(yhat.rf, test.Y)
+```
+
+```{r include=FALSE}
+# error rate for random forest
+err.rf = ((55+17)/1000)*100 # 7.2 %
+```
+
+```{r include=FALSE}
+# look for the important variables for random forest
+varImpPlot(rf.caravan)
+```
+MOSTYPE, MOSHOOFD, and MOPLLAG appear to be the most important based on the plots. 
+
+(e)
+```{r include=FALSE}
+###### 2 (e)
+library(gbm)
+
+Caravan[,1:(ncol(Caravan)-1)] =as.data.frame(scale(Caravan[,1:(ncol(Caravan)-1)]))
+train.data = Caravan[1001:nrow(Caravan),]
+test.data = Caravan[1:1000, ]
+
+train.data[, "Purchase"] = ifelse(train.data[, "Purchase"] == "No", 0,1)
+
+### fit a boosted regression tree using training data
+set.seed(1)
+boost.caravan = gbm(Purchase ~., data = train.data, distribution = "bernoulli", n.trees = 1000, interaction.depth = 1, shrinkage = 0.01, verbose = F)
+
+summary(boost.caravan)
+```
+
+```{r include=FALSE}
+# estimate test error rate
+test.data[,"Purchase"] = ifelse(test.data[, "Purchase"] == "No", 0, 1)
+boost.prob = predict(boost.caravan, newdata = test.data, n.trees = 1000, type = "response")
+summary(boost.prob)
+boost.pred = ifelse(boost.prob > 0.5, 1, 0)
+```
+
+```{r echo=FALSE}
+# confusion matrix for boosting
+conf.mat.boost = table(boost.pred, test.data[,'Purchase']);conf.mat.boost
+```
+
+```{r include=FALSE}
+err.boost = (1-sum(diag(conf.mat.boost))/sum(conf.mat.boost))*100;err.boost
+```
+Based on the summary, the important variables for boosting seems to be PPERSAUT, 	
+PPLEZIER, and	PBRAND as they are top three variables. 
+
+(f)
+```{r include=FALSE}
+######## 2 f)
+# KNN
+library(class)
+
+library(crossval)
+knn.cv.predfun <- function(Xtrain, Ytrain, Xtest, Ytest, k) {
+  fit <- knn(Xtrain, Xtest, Ytrain, k = k)
+  return(mean(fit != Ytest))
+}
+
+ks <- c(seq(1,50, by = 2))
+knn.cv.err = c()
+for (k in ks) {
+  set.seed(1)
+  knn.cv.err[k] <- crossval(knn.cv.predfun, k = k,
+  X = test.X, Y = test.Y, K = 10,
+  B = 1, verbose = F)$stat
+}
+
+k.opt <- which.min(knn.cv.err) # k.opt = 11
+```
+```{r include=FALSE}
+# Error rates for optimal k
+set.seed(1)
+knn.pred = knn(test.X, test.X, test.Y, k = k.opt)
+```
+
+```{r echo=FALSE}
+# confusion matrix for knn
+table(knn.pred, test.Y)
+```
+
+```{r include=FALSE}
+# knn error rate
+err.knn = (59/1000)*100 # 5.9
+```
+For KNN, it's not possible to find important predictors as it's a distance-based method. 
+
+(g)
+```{r include=FALSE}
+############ 2 (g)
+
+# fit a logistic regression model with training data
+lr.fit = glm(Purchase~., data = std.data, family = binomial, subset = -test)
+lr.prob = predict(lr.fit, std.data[test, ], type = "response")
+lr.pred = ifelse(lr.prob > 0.5, "Yes", "No")
+```
+
+```{r echo=FALSE}
+# confusion matrix for KNN
+table(lr.pred, test.Y)
+```
+```{r include=FALSE}
+# KNN error rate
+err.knn = (66/1000)*100
+```
+
+```{r}
+library(car)
+Anova(lr.fit, type = "II", test = "Wald")
+```
+Based on the chi-squared test to test the importance of variables, PPERSAUT and PBRAND are significant as their chi-squared values are less than 0.05. 
+
+(h) Interpretation...
+
+Question 3
+
+(a)
+```{r include=FALSE}
+############### 3 (a)
+# Read data and define X and Y
+Admission = read.csv("C:/Users/jaemi/Desktop/STAT 4360 (Stat Learning)/Projects/Project 6/admission.csv")[,-(4:7)]
+
+X=Admission[,1:2]
+Y=as.factor(Admission[,3])
+levels(Y)=c("admit","not admit","borderline")
+
+Admission$Group = as.factor(Admission$Group)
+
+test = vector("logical", nrow(Admission))
+test[c(27:31, 55:59, 81:85)] = TRUE
+
+# split into test and training set
+Admission.test <- Admission[test, ]
+Admission.train = Admission[!test, ]
+```
+
+```{r echo=FALSE}
+# support vector classifier
+library(e1071)
+library(caret)
+
+set.seed(1)
+svc.train = tune(svm, Group~., data =Admission.train, kernel = "linear", ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5, 10)))
+summary(svc.train)
+```
+
+```{r include=FALSE}
+# get results for the best model
+best.mod = svc.train$best.model
+summary(best.mod)
+```
+
+```{r include=FALSE}
+# predict the test responses using the best model
+ypred = predict(best.mod, Admission.test)
+```
+
+```{r echo=FALSE}
+# confusion matrix for SVC
+conf.mat.svc = table(predict = ypred, truth = Admission.test$Group);conf.mat.svc
+```
+
+```{r include=FALSE}
+err.svc = (1-sum(diag(conf.mat.svc))/sum(conf.mat.svc))*100;err.svc
+```
+Based on the fit, the optimal cost is 1. When it is tested againt the test data, 
+the error rate came out to be 20%.
+
+(b)
+```{r echo=FALSE}
+############## 3 (b)
+# SVM with polynomial kernel of degree two
+svm.poly.train = tune(svm, Group~., data =Admission.train, kernel = "polynomial", degree = 2, ranges = list(cost = c(0.001, 0.01, 0.1, 0.2, 0.3, 0.5, 1, 5, 10)))
+summary(svm.poly.train)
+```
+
+```{r include=FALSE}
+# get the results for the best model
+best.mod.poly = svm.poly.train$best.model
+summary(best.mod.poly)
+```
+
+```{r include=FALSE}
+# evaluate test set performance
+ypred.poly = predict(best.mod.poly, Admission.test)
+```
+
+```{r echo=FALSE}
+# confusion matrix for SVC
+conf.mat.svm = table(predict = ypred.poly, truth = Admission.test$Group);conf.mat.svm
+```
+```{r include=FALSE}
+# error rate for polynomial degree of 2
+err.svm = (1-sum(diag(conf.mat.svm))/sum(conf.mat.svm))*100;err.svm
+```
+Based on the fit, the optimal cost is 5. When it was tested against the test data,
+the error rate came out to be 53.3% The confusion matrix is shown above.
+
+(c)
+```{r include=FALSE}
+########## 3 (c)
+
+# SVM with radial
+svm.rad.train = tune(svm, Group~., data =Admission.train, kernel = "radial", ranges = list(cost = c(0.001, 0.01, 0.1, 0.2, 0.3, 0.5, 1, 5, 10), gamma = c(0.001, 0.01, 0.5, 1, 2, 3, 4)))
+summary(svm.rad.train)
+
+```
+
+```{r include=FALSE}
+# get the results for the best model
+best.mod.rad = svm.rad.train$best.model
+summary(best.mod.rad)
+```
+
+```{r include=FALSE}
+# evaluate test set performance for radial
+ypred.rad = predict(best.mod.rad, Admission.test, type = "response")
+```
+
+```{r echo=FALSE}
+# confusion matrix for SVC
+conf.mat.rad = table(predict = ypred.rad, truth = Admission.test$Group);conf.mat.rad
+```
+```{r include=FALSE}
+# error rate for polynomial degree of 2
+err.rad = (1-sum(diag(conf.mat.rad))/sum(conf.mat.rad))*100;err.rad
+```
+
+Based on the fit, the optimal cost is 0.5 and the optimal gamma is 0.5. When it was
+tested against the test data, the error rte came out to be 20%. The confusion matrix is shown above.
+
+
+```{r include=FALSE}
+library(MASS)
+admission = read.csv("C:/Users/jaemi/Desktop/STAT 4360 (Stat Learning)/Projects/Project 3/admission.csv")
+adm = data.frame(admission)
+
+# training data (row 1-80 from col 1,2,3)
+train = adm[1:80, ]
+
+train.x = adm[1:80, 1:2]
+train.y = adm[1:80, 3]
+
+train.id <- logical(85) # creates a logical vector of the specified length. 
+                        # each element of the vector is equal to FALSE
+
+train.id[1:80] <- TRUE # set 1:80 (train data) to be true 
+
+# test data (row 81-85 from col 1, 2, 3)
+test.x = adm[81:85, 1:2]
+test.y = adm[81:85, 3]
+
+# fit qda
+qda.train = qda(Group ~ GPA + GMAT, data = adm, subset = train.id)
+
+# get predictions for test data
+qda.pred = predict(qda.train, adm[!train.id,])
+
+# confusion matrix for test data
+table(qda.pred$class, test.y) # no missclassification
+
+# error rate for test data
+mean(qda.pred$class != test.y) # 0 %
+
+# get predictions for train data
+qda.pred2 = predict(qda.train, adm[train.id,])
+
+## Decision boundary 
+
+# set up a dense grid and compute posterior probability on the grid
+n.grid = 100
+x1.grid = seq(f = min(train.x[, 1]), t = max(train.x[, 1]), l = n.grid)
+x2.grid = seq(f = min(train.x[, 2]), t = max(train.x[, 2]), l = n.grid)
+grid = expand.grid(x1.grid, x2.grid)
+colnames(grid) = colnames(train.x)
+
+qda.pred.grid = predict(qda.train, grid)
+
+# p*(x) for class boundaries
+p1star.qda = qda.pred.grid$posterior[,1] - pmax(qda.pred.grid$posterior[,2], qda.pred.grid$posterior[,3])
+p2star.qda = qda.pred.grid$posterior[,2] - pmax(qda.pred.grid$posterior[,1], qda.pred.grid$posterior[,3])
+
+prob1.qda = matrix(p1star.qda, nrow = n.grid, ncol = n.grid, byrow = F)
+prob2.qda = matrix(p2star.qda, nrow = n.grid, ncol = n.grid, byrow = F)
+```
+
+
+```{r echo=FALSE}
+# QDA Decision boundary
+plot(train.x, pch = train.y, main = 'Decision Boundary Using QDA')
+contour(x1.grid, x2.grid, prob1.qda, levels = 0, labels = "", xlab = "", ylab = "", main = "", add = T)
+contour(x1.grid, x2.grid, prob2.qda, levels = 0, labels = "", xlab = "", ylab = "", main = "", add = T)
+legend("topleft", legend = c("Admit", "Do Not Admit", "Borderline"), pch = c(1, 2, 3), cex = 0.9)
+```
+
+(d) The error rates for support vector classifier, support vector machine with a polynomial degree = 2, and support vector machine with a radial came out to be 20%, 53.5% and 20% respectively. From mini project 3, we observed that the error rates for LDA and QDA are 20% and 13%, respectively. Therefore, due to its lowest error rate, QDA is the best method amongst all of them. The decision boundary for QDA is shown above. 
